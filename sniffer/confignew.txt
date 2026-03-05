@@ -1,0 +1,8 @@
+start=00:00:00
+read=0
+order=1
+openIds=oIVg65rRnO0DVI-DHjR9ggZ29f5Y
+datetimes=2025-09-08#13@12
+name=li
+phone=16620212989
+interval=0.3

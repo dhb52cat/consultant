@@ -1,0 +1,20 @@
+[Verified Entry Point]
+0x026eb730: mov    %eax,-0x8000(%esp)
+…………
+;; ImplicitNullCheckStub slow case
+0x026eb7a9: call   0x026e83e0       ; OopMap{ebx=Oop [16]=Oop off=142}
+                                    ; *caload
+                                    ; - java.lang.String::hashCode@48 (line 1489)
+                                    ;   {runtime_call}
+    0x026eb7ae: push   $0x83c5c18   ;   {external_word}
+    0x026eb7b3: call   0x026eb7b8
+    0x026eb7b8: pusha
+    0x026eb7b9: call   0x0822bec0   ;   {runtime_call}
+    0x026eb7be: hlt
+
+0x026eb7a9: call   0x026e83e0    
+0x026eb7ae: push   $0x83c5c18
+0x026eb7b3: call   0x026eb7b8
+0x026eb7b8: pusha
+0x026eb7b9: call   0x0822bec0
+0x026eb7be: hlt
