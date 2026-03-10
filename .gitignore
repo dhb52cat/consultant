@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.db
+*.csv
+.DS_Store
+*.xls
+*.xlsx
+*.log
+
+venue_booking/dist/
+venue_booking/build/
+*.xlsx
+*.xls
+*.pyc
