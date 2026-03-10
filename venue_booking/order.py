@@ -11,7 +11,9 @@ lock = threading.Lock()
 # 预约接口的 URL
 order_url = "http://www.ruanjiezh.cn:8081/api/mobile/order/create"
 # 配置文件路径
-config_file = "config.txt"
+import os
+script_dir = os.path.dirname(os.path.abspath(__file__))
+config_file = os.path.join(script_dir, "config.txt")
 # 用户的 openId 列表
 openIds = []
 # 日期和时段的映射

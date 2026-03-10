@@ -1,7 +1,13 @@
+import os
+import re
+import json
 from scapy.all import *
 
+# 配置文件路径
+script_dir = os.path.dirname(os.path.abspath(__file__))
+config_file = os.path.join(script_dir, "config.txt")
+
 def packet_callback(packet):
-    config_file = "config.txt"
     if packet.haslayer(Raw):
         payload = packet[Raw].load.decode(errors="ignore")
         if "POST" in payload and "openId" in payload:

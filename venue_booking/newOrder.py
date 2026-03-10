@@ -18,9 +18,9 @@ def read_info_file_simple() -> dict:
     import os
     from pathlib import Path
 
-    # 获取当前工作目录的上一级目录
-    parent_dir = Path(os.getcwd()).parent
-    file_path = parent_dir / 'info.txt'
+    # 获取脚本所在目录
+    script_dir = Path(__file__).parent
+    file_path = script_dir / 'info.txt'
     
     if not file_path.exists():
         return {}
@@ -46,9 +46,9 @@ def simple_write_appointment_info(date_str, appointment_ids):
     """
     
     output_content = appointment_ids
-    # 获取上一级目录路径
-    parent_dir = os.path.dirname(os.getcwd())
-    file_path = os.path.join(parent_dir, 'info.txt')
+    # 获取脚本所在目录
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    file_path = os.path.join(script_dir, 'info.txt')
     
     try:
         # 以追加模式写入文件
@@ -69,7 +69,8 @@ results = {}
 # 预约接口的 URL
 order_url = "http://www.ruanjiezh.cn:8081/api/mobile/order/create"
 # 配置文件路径
-config_file = "confignew.txt"
+script_dir = os.path.dirname(os.path.abspath(__file__))
+config_file = os.path.join(script_dir, "confignew.txt")
 # 用户的 openId 列表
 openIds = []
 # 日期和时段的映射

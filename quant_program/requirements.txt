@@ -1,0 +1,9 @@
+akshare
+pytest
+pytest-mock
+pandas
+numpy
+requests
+tushare
+yfinance
+ta-lib
