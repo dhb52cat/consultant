@@ -10,5 +10,5 @@ __pycache__/
 venue_booking/dist/
 venue_booking/build/
 *.xlsx
-*.xls
+*.xls                    
 *.pyc
