@@ -198,11 +198,16 @@
 
     // 窗口拖拽
     function makeWindowDraggable(headerEl, windowEl, storageKey) {
+        let isDrag = false; // 标记是否在拖拽
         headerEl.addEventListener('mousedown', (e) => {
+            isDrag = false;
             const startX = e.clientX, startY = e.clientY;
             const rect = windowEl.getBoundingClientRect();
             const startLeft = rect.left, startTop = rect.top;
             const onMove = (me) => {
+                if (Math.abs(me.clientX - startX) > 3 || Math.abs(me.clientY - startY) > 3) {
+                    isDrag = true;
+                }
                 windowEl.style.left = `${startLeft + (me.clientX - startX)}px`;
                 windowEl.style.top = `${startTop + (me.clientY - startY)}px`;
                 windowEl.style.right = 'auto'; windowEl.style.bottom = 'auto';
@@ -210,12 +215,17 @@
             const onUp = () => {
                 document.removeEventListener('mousemove', onMove);
                 document.removeEventListener('mouseup', onUp);
+                // [2026-04-03] 添加：拖拽结束后触发自定义事件
+                setTimeout(() => { headerEl.dispatchEvent(new CustomEvent('dragend', { bubbles: false })); }, 10);
                 saveState(storageKey, windowEl);
             };
             document.addEventListener('mousemove', onMove);
             document.addEventListener('mouseup', onUp);
         });
         windowEl.addEventListener('mouseup', () => saveState(storageKey, windowEl));
+        
+        // [2026-04-03] 导出拖拽状态供外部使用
+        headerEl._isDragging = () => isDrag;
     }
 
     // 按钮吸附拖拽
@@ -559,7 +569,10 @@
         
         // [2026-04-03] 添加：点击标题栏收缩/展开内容
         const header = tocPanel.querySelector('.window-header');
+        
         header.addEventListener('click', (e) => {
+            // [2026-04-03] 修改：避免拖拽时触发点击
+            if (header._isDragging && header._isDragging()) return;
             // 避免点击关闭按钮时触发（如果存在）
             if (e.target.classList.contains('window-close')) return;
             
@@ -569,9 +582,8 @@
                 tocPanel.style.height = '';
             } else {
                 tocList.style.display = 'none';
-                // 收缩时只保留标题栏高度
-                const headerHeight = header.offsetHeight;
-                tocPanel.style.height = headerHeight + 'px';
+                // [2026-04-03] 修改：收缩时只保留标题栏高度
+                tocPanel.style.height = header.offsetHeight + 'px';
             }
         });
         
