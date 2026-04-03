@@ -67,6 +67,8 @@
         /* --- 目录样式 --- */
         .toc-item { padding: 6px 10px; margin-bottom: 2px; border-radius: 4px; font-size: 13px; color: #c4c7c5; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-left: 2px solid transparent; }
         .toc-item:hover { background: #3c4043; border-left-color: #8ab4f8; color: #fff; }
+        /* [2026-04-03] 添加：鼠标悬停显示完整内容 */
+        .toc-item[title]:hover { white-space: normal; overflow: visible; text-overflow: clip; position: relative; z-index: 100; background: #3c4043; color: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
 
         /* --- 提示词样式 --- */
         .pm-layout { display: flex; height: 100%; flex-direction: column; }
@@ -396,7 +398,10 @@
         while(tocList.firstChild) tocList.removeChild(tocList.firstChild);
         if (unique.length === 0) { tocList.appendChild(el('div', '', '暂无记录')); return; }
         unique.forEach((item, idx) => {
-            tocList.appendChild(el('div', 'toc-item', `${idx+1}. ${item.text}`, () => {
+            // [2026-04-03] 添加：添加title属性，鼠标悬停显示完整内容
+            const itemEl = el('div', 'toc-item', `${idx+1}. ${item.text}`);
+            itemEl.title = item.text;
+            itemEl.addEventListener('click', () => {
                 const liveUnique = getUniqueQueries(); 
                 const target = liveUnique[idx]; 
                 if (target && target.el && target.el.isConnected) {
@@ -404,7 +409,8 @@
                 } else if (item.el) {
                     item.el.scrollIntoView({behavior:'smooth', block:'center'});
                 }
-            }));
+            });
+            tocList.appendChild(itemEl);
         });
     }
 
