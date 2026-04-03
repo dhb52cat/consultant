@@ -64,6 +64,12 @@
         .window-close:hover { color: #fff; }
         .window-content { flex: 1; overflow-y: auto; padding: 10px; position: relative; }
 
+        /* [2026-04-03] 添加：对话目录专用样式，默认收起状态 */
+        #gemini-toc-panel {
+            min-height: unset !important;
+            height: auto !important;
+        }
+
         /* --- 目录样式 --- */
         .toc-item { padding: 6px 10px; margin-bottom: 2px; border-radius: 4px; font-size: 13px; color: #c4c7c5; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-left: 2px solid transparent; }
         .toc-item:hover { background: #3c4043; border-left-color: #8ab4f8; color: #fff; }
@@ -159,8 +165,8 @@
 
     // ================= 2 状态与存储 =================
     const DEFAULT_LAYOUT = {
-        // [2026-04-03] 修改：对话目录默认显示在左上角
-        toc: { x: 20, y: 80, w: 220, h: 400 },
+        // [2026-04-03] 修改：对话目录默认高度设小，用于收起状态
+        toc: { x: 20, y: 80, w: 220, h: 40 },
         prompt: { x: window.innerWidth / 2 - 350, y: window.innerHeight / 2 - 250, w: 700, h: 500 }
     };
 
@@ -175,7 +181,9 @@
             const x = Math.min(Math.max(0, val.x), window.innerWidth - 50);
             const y = Math.min(Math.max(0, val.y), window.innerHeight - 50);
             element.style.left = `${x}px`; element.style.top = `${y}px`;
-            element.style.width = `${val.w}px`; element.style.height = `${val.h}px`;
+            element.style.width = `${val.w}px`;
+            // [2026-04-03] 修改：如果是目录面板，不强制加载存储的高度，由内容决定
+            if (key !== 'toc_state') element.style.height = `${val.h}px`;
         } catch(e) {}
     }
 
@@ -557,37 +565,33 @@
     function initTOC() {
         if (document.getElementById('gemini-toc-panel')) return;
         
-        // [2026-04-03] 修改：无悬浮按钮，对话目录默认显示，点击标题栏收缩展开
+        // [2026-04-03] 修改：初始化时将内容区隐藏
+        tocList = el('div', 'window-content', '');
+        tocList.style.display = 'none';
+        
         tocPanel = el('div', 'gemini-window', [
-            el('div', 'window-header', [el('span', 'window-title', '对话目录')]),
-            tocList = el('div', 'window-content', '')
+            el('div', 'window-header', [el('span', 'window-title', '对话目录 (点击展开)')]),
+            tocList
         ]);
         tocPanel.id = 'gemini-toc-panel';
         tocPanel.style.display = 'flex';
         document.body.appendChild(tocPanel);
+        
         loadState('toc_state', tocPanel, DEFAULT_LAYOUT.toc);
         
-        // [2026-04-03] 添加：点击标题栏收缩/展开内容
         const header = tocPanel.querySelector('.window-header');
         
-        header.addEventListener('click', (e) => {
-            // [2026-04-03] 修改：避免拖拽时触发点击
+        // [2026-04-03] 修改：点击标题栏切换显示/隐藏内容黑框
+        header.addEventListener('click', () => {
             if (header._isDragging && header._isDragging()) return;
-            // 避免点击关闭按钮时触发（如果存在）
-            if (e.target.classList.contains('window-close')) return;
-            
-            // 切换内容区域显示状态
             if (tocList.style.display === 'none') {
-                tocList.style.display = '';
-                tocPanel.style.height = '';
+                tocList.style.display = 'block';
+                tocPanel.style.maxHeight = '500px'; // 展开时最大高度
             } else {
                 tocList.style.display = 'none';
-                // [2026-04-03] 修改：收缩时只保留标题栏高度
-                tocPanel.style.height = header.offsetHeight + 'px';
             }
         });
         
-        // 保持拖拽功能
         makeWindowDraggable(header, tocPanel, 'toc_state');
     }
 
