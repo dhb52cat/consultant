@@ -130,15 +130,15 @@
 
         /* --- 快速滑动按钮 --- */
         .enhancer-fab-container {
-            position: fixed; right: 10px; z-index: 9990;
-            display: flex; flex-direction: column; gap: 8px;
+            position: fixed; bottom: 20px; right: 20px; z-index: 9990;
+            display: flex; flex-direction: row; gap: 8px;
             opacity: 0.6; transition: opacity 0.3s;
         }
         .enhancer-fab-container:hover { opacity: 1; }
         .enhancer-fab {
-            width: 40px; height: 40px; border-radius: 50%; border: 1px solid #555;
+            width: 36px; height: 36px; border-radius: 50%; border: 1px solid #555;
             background: #2d2e30; color: #fff; cursor: pointer; display: flex;
-            align-items: center; justify-content: center; font-size: 16px;
+            align-items: center; justify-content: center; font-size: 14px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.5); transition: transform 0.2s, background 0.2s;
         }
         .enhancer-fab:hover { transform: scale(1.1); background: #3c4043; }
