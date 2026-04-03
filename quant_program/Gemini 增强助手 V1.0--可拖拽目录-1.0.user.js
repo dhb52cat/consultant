@@ -159,7 +159,8 @@
 
     // ================= 2 状态与存储 =================
     const DEFAULT_LAYOUT = {
-        toc: { x: window.innerWidth - 260, y: 150, w: 220, h: 400 },
+        // [2026-04-03] 修改：对话目录默认显示在左上角
+        toc: { x: 20, y: 80, w: 220, h: 400 },
         prompt: { x: window.innerWidth / 2 - 350, y: window.innerHeight / 2 - 250, w: 700, h: 500 }
     };
 
@@ -544,26 +545,42 @@
     }
     
     function initTOC() {
-        if (document.getElementById('gemini-toc-btn')) return;
-        const btn = el('div', 'gemini-float-btn docked-right', '📂');
-        btn.id = 'gemini-toc-btn'; btn.style.top = '150px'; btn.style.right = '-20px';
-        document.body.appendChild(btn);
-
+        if (document.getElementById('gemini-toc-panel')) return;
+        
+        // [2026-04-03] 修改：无悬浮按钮，对话目录默认显示，点击标题栏收缩展开
         tocPanel = el('div', 'gemini-window', [
-            el('div', 'window-header', [el('span', 'window-title', '对话目录'), el('button', 'window-close', '✕', () => tocPanel.style.display = 'none')]),
+            el('div', 'window-header', [el('span', 'window-title', '对话目录')]),
             tocList = el('div', 'window-content', '')
         ]);
-        tocPanel.id = 'gemini-toc-panel'; document.body.appendChild(tocPanel);
+        tocPanel.id = 'gemini-toc-panel';
+        tocPanel.style.display = 'flex';
+        document.body.appendChild(tocPanel);
         loadState('toc_state', tocPanel, DEFAULT_LAYOUT.toc);
-        makeWindowDraggable(tocPanel.querySelector('.window-header'), tocPanel, 'toc_state');
-
-        makeButtonDraggable(btn, () => {
-            if (tocPanel.style.display === 'flex') tocPanel.style.display = 'none';
-            else { updateTOCList(true); tocPanel.style.display = 'flex'; saveState('toc_state', tocPanel); }
+        
+        // [2026-04-03] 添加：点击标题栏收缩/展开内容
+        const header = tocPanel.querySelector('.window-header');
+        header.addEventListener('click', (e) => {
+            // 避免点击关闭按钮时触发（如果存在）
+            if (e.target.classList.contains('window-close')) return;
+            
+            // 切换内容区域显示状态
+            if (tocList.style.display === 'none') {
+                tocList.style.display = '';
+                tocPanel.style.height = '';
+            } else {
+                tocList.style.display = 'none';
+                // 收缩时只保留标题栏高度
+                const headerHeight = header.offsetHeight;
+                tocPanel.style.height = headerHeight + 'px';
+            }
         });
+        
+        // 保持拖拽功能
+        makeWindowDraggable(header, tocPanel, 'toc_state');
     }
 
     function updateTOCList(force = false) {
+        // [2026-04-03] 修改：即使内容隐藏时也允许更新（但只在展开时显示）
         if (!tocPanel || tocPanel.style.display === 'none') return;
         const unique = getUniqueQueries();
         const currentData = unique.map(u => u.text).join('|');
