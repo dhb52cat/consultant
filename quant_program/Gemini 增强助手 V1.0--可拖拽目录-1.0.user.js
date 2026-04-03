@@ -607,9 +607,13 @@
         while(tocList.firstChild) tocList.removeChild(tocList.firstChild);
         if (unique.length === 0) { tocList.appendChild(el('div', '', '暂无记录')); return; }
         unique.forEach((item, idx) => {
-            // [2026-04-03] 添加：添加title属性，鼠标悬停显示完整内容
-            const itemEl = el('div', 'toc-item', `${idx+1}. ${item.text}`);
-            itemEl.title = item.text;
+            // [2026-04-03] 修改：如果文字以"你说"开头，则去掉"你说"两字
+            let displayText = item.text;
+            if (displayText.startsWith('你说')) {
+                displayText = displayText.substring(2);
+            }
+            const itemEl = el('div', 'toc-item', `${idx+1}. ${displayText}`);
+            itemEl.title = displayText;
             itemEl.addEventListener('click', () => {
                 const liveUnique = getUniqueQueries(); 
                 const target = liveUnique[idx]; 
