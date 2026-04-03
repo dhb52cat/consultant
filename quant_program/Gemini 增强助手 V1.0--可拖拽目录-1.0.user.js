@@ -565,16 +565,16 @@
     function initTOC() {
         if (document.getElementById('gemini-toc-panel')) return;
         
-        // [2026-04-03] 修改：初始化时将内容区隐藏
+        // [2026-04-03] 修改：初始化时内容区默认显示
         tocList = el('div', 'window-content', '');
-        tocList.style.display = 'none';
         
         tocPanel = el('div', 'gemini-window', [
-            el('div', 'window-header', [el('span', 'window-title', '对话目录 (点击展开)')]),
+            el('div', 'window-header', [el('span', 'window-title', '对话目录 (点击收起)')]),
             tocList
         ]);
         tocPanel.id = 'gemini-toc-panel';
         tocPanel.style.display = 'flex';
+        tocPanel.style.maxHeight = '500px'; // 展开时最大高度
         document.body.appendChild(tocPanel);
         
         loadState('toc_state', tocPanel, DEFAULT_LAYOUT.toc);
@@ -586,9 +586,11 @@
             if (header._isDragging && header._isDragging()) return;
             if (tocList.style.display === 'none') {
                 tocList.style.display = 'block';
-                tocPanel.style.maxHeight = '500px'; // 展开时最大高度
+                tocPanel.style.maxHeight = '500px';
+                header.querySelector('.window-title').textContent = '对话目录 (点击收起)';
             } else {
                 tocList.style.display = 'none';
+                header.querySelector('.window-title').textContent = '对话目录 (点击展开)';
             }
         });
         
