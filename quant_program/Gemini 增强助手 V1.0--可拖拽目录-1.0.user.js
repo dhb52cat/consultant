@@ -159,7 +159,8 @@
 
     // ================= 2 状态与存储 =================
     const DEFAULT_LAYOUT = {
-        toc: { x: window.innerWidth - 260, y: 150, w: 220, h: 400 },
+        // [2026-04-03] 修改：对话目录默认显示在左上角
+        toc: { x: 20, y: 80, w: 220, h: 400 },
         prompt: { x: window.innerWidth / 2 - 350, y: window.innerHeight / 2 - 250, w: 700, h: 500 }
     };
 
@@ -545,22 +546,34 @@
     
     function initTOC() {
         if (document.getElementById('gemini-toc-btn')) return;
-        const btn = el('div', 'gemini-float-btn docked-right', '📂');
-        btn.id = 'gemini-toc-btn'; btn.style.top = '150px'; btn.style.right = '-20px';
-        document.body.appendChild(btn);
-
+        
+        // [2026-04-03] 修改：去除悬浮按钮，对话目录默认显示，点击标题栏收起/展开
+        // 默认显示面板
         tocPanel = el('div', 'gemini-window', [
-            el('div', 'window-header', [el('span', 'window-title', '对话目录'), el('button', 'window-close', '✕', () => tocPanel.style.display = 'none')]),
+            // [2026-04-03] 修改：标题栏点击收起/展开
+            el('div', 'window-header', [el('span', 'window-title', '对话目录')]),
             tocList = el('div', 'window-content', '')
         ]);
-        tocPanel.id = 'gemini-toc-panel'; document.body.appendChild(tocPanel);
+        tocPanel.id = 'gemini-toc-panel'; 
+        tocPanel.style.display = 'flex'; // 默认显示
+        document.body.appendChild(tocPanel);
         loadState('toc_state', tocPanel, DEFAULT_LAYOUT.toc);
-        makeWindowDraggable(tocPanel.querySelector('.window-header'), tocPanel, 'toc_state');
-
-        makeButtonDraggable(btn, () => {
-            if (tocPanel.style.display === 'flex') tocPanel.style.display = 'none';
-            else { updateTOCList(true); tocPanel.style.display = 'flex'; saveState('toc_state', tocPanel); }
+        
+        // [2026-04-03] 修改：点击标题栏收起/展开
+        const header = tocPanel.querySelector('.window-header');
+        header.addEventListener('click', (e) => {
+            // 避免点击关闭按钮时触发
+            if (e.target.classList.contains('window-close')) return;
+            if (tocPanel.style.display === 'none') {
+                updateTOCList(true);
+                tocPanel.style.display = 'flex';
+            } else {
+                tocPanel.style.display = 'none';
+            }
         });
+        
+        // 保持拖拽功能
+        makeWindowDraggable(header, tocPanel, 'toc_state');
     }
 
     function updateTOCList(force = false) {
