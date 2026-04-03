@@ -127,6 +127,21 @@
             backdrop-filter: blur(4px); transition: all 0.2s;
         }
         .dl-btn:hover { background: #1a73e8; border-color: #1a73e8; }
+
+        /* --- 快速滑动按钮 --- */
+        .enhancer-fab-container {
+            position: fixed; right: 10px; z-index: 9990;
+            display: flex; flex-direction: column; gap: 8px;
+            opacity: 0.6; transition: opacity 0.3s;
+        }
+        .enhancer-fab-container:hover { opacity: 1; }
+        .enhancer-fab {
+            width: 40px; height: 40px; border-radius: 50%; border: 1px solid #555;
+            background: #2d2e30; color: #fff; cursor: pointer; display: flex;
+            align-items: center; justify-content: center; font-size: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5); transition: transform 0.2s, background 0.2s;
+        }
+        .enhancer-fab:hover { transform: scale(1.1); background: #3c4043; }
     `;
 
     GM_addStyle(STYLES);
@@ -250,6 +265,93 @@
 
     // ================= 5 目录模块 =================
     let tocPanel, tocList, lastTOCData = "";
+    
+    // [2026-04-03] 添加：快速滑动功能相关变量
+    let enhancerQuestions = [];
+    let enhancerCurrentIndex = -1;
+    let enhancerFabContainer = null;
+    
+    // [2026-04-03] 添加：获取滚动容器
+    function getEnhancerScroller() {
+        const explicit = document.querySelector('infinite-scroller[data-test-id="chat-history-container"]');
+        if (explicit) return explicit;
+        const scrollers = Array.from(document.querySelectorAll('infinite-scroller'));
+        const candidates = scrollers.filter(el =>
+            !el.closest('mat-sidenav') &&
+            !el.closest('.sidenav-with-history-container')
+        );
+        if (candidates.length > 0) {
+            candidates.sort((a, b) => b.clientWidth - a.clientWidth);
+            return candidates[0];
+        }
+        return document.documentElement;
+    }
+    
+    // [2026-04-03] 添加：滚动到指定位置
+    function enhancerScroll(pos) {
+        const scroller = getEnhancerScroller();
+        const targetPos = (pos === Infinity) ? scroller.scrollHeight : pos;
+        if (scroller === document.documentElement || scroller === document.body) {
+            window.scrollTo({ top: targetPos, behavior: 'smooth' });
+        } else {
+            scroller.scrollTo({ top: targetPos, behavior: 'smooth' });
+        }
+    }
+    
+    // [2026-04-03] 添加：导航到上一个/下一个提问
+    function enhancerNav(dir) {
+        enhancerScan();
+        if (enhancerQuestions.length === 0) return;
+        let next = enhancerCurrentIndex + dir;
+        if (next < 0) next = 0;
+        if (next >= enhancerQuestions.length) next = enhancerQuestions.length - 1;
+        enhancerCurrentIndex = next;
+        const target = enhancerQuestions[next].element;
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    
+    // [2026-04-03] 添加：扫描所有提问
+    function enhancerScan() {
+        const selectors = ['user-query', '[data-test-id="user-query"]', '.user-query'];
+        let rawElements = [];
+        selectors.forEach(sel => {
+            document.querySelectorAll(sel).forEach(el => rawElements.push(el));
+        });
+        rawElements = [...new Set(rawElements)];
+        rawElements.sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) ? -1 : 1);
+        
+        enhancerQuestions = rawElements.map((el, idx) => {
+            const rawText = el.innerText || "";
+            const title = rawText.split('\n').find(l => l.trim().length > 0) || `提问 ${idx + 1}`;
+            return { element: el, text: title };
+        });
+    }
+    
+    // [2026-04-03] 添加：初始化快速滑动FAB按钮
+    function initEnhancerFab() {
+        if (document.getElementById('enhancer-fab-container')) return;
+        
+        enhancerFabContainer = document.createElement('div');
+        enhancerFabContainer.id = 'enhancer-fab-container';
+        enhancerFabContainer.className = 'enhancer-fab-container';
+        
+        const addFab = (icon, title, onClick) => {
+            const btn = document.createElement('button');
+            btn.className = 'enhancer-fab';
+            btn.title = title;
+            btn.textContent = icon;
+            btn.onclick = onClick;
+            enhancerFabContainer.appendChild(btn);
+            return btn;
+        };
+        
+        addFab('⬆', '回到顶部', () => enhancerScroll(0));
+        addFab('▲', '上一个提问', () => enhancerNav(-1));
+        addFab('▼', '下一个提问', () => enhancerNav(1));
+        addFab('⬇', '滚动到底部', () => enhancerScroll(Infinity));
+        
+        document.body.appendChild(enhancerFabContainer);
+    }
     // 提取唯一的对话列表数据，保证渲染时和点击时使用相同逻辑查找元素
     function getUniqueQueries() {
         const containers = document.querySelectorAll('.user-query-container, [data-test-id="user-query"]');
@@ -636,6 +738,8 @@
     // ================= 8 启动 =================
     function start() {
         initTOC(); initPromptManager(); initAboutPanel();
+        // [2026-04-03] 添加：初始化快速滑动功能
+        initEnhancerFab();
         setInterval(() => { updateTOCList(); initImageHandler(); }, CONFIG.pollInterval);
     }
     window.addEventListener('load', start);
