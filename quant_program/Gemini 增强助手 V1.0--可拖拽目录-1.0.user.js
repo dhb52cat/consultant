@@ -144,6 +144,15 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.5); transition: transform 0.2s, background 0.2s;
         }
         .enhancer-fab:hover { transform: scale(1.1); background: #3c4043; }
+
+        /* --- 导出按钮 --- */
+        .enhancer-export-btn {
+            width: 36px; height: 36px; border-radius: 50%; border: 1px solid #555;
+            background: #2d2e30; color: #fff; cursor: pointer; display: flex;
+            align-items: center; justify-content: center; font-size: 14px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5); transition: transform 0.2s, background 0.2s;
+        }
+        .enhancer-export-btn:hover { transform: scale(1.1); background: #3c4043; }
     `;
 
     GM_addStyle(STYLES);
@@ -337,9 +346,9 @@
         enhancerFabContainer.id = 'enhancer-fab-container';
         enhancerFabContainer.className = 'enhancer-fab-container';
         
-        const addFab = (icon, title, onClick) => {
+        const addFab = (icon, title, onClick, className = 'enhancer-fab') => {
             const btn = document.createElement('button');
-            btn.className = 'enhancer-fab';
+            btn.className = className;
             btn.title = title;
             btn.textContent = icon;
             btn.onclick = onClick;
@@ -352,7 +361,172 @@
         addFab('▼', '下一个提问', () => enhancerNav(1));
         addFab('⬇', '滚动到底部', () => enhancerScroll(Infinity));
         
+        // [2026-04-03] 添加：导出按钮
+        addFab('📥', '导出Markdown', () => runExport(), 'enhancer-export-btn');
+        
         document.body.appendChild(enhancerFabContainer);
+    }
+    
+    // [2026-04-03] 添加：Markdown解析器（从Gemini Chat Exporter集成）
+    const ExporterMarkdownParser = {
+        parseNode: function(node) {
+            if (node.nodeType === 3) return node.nodeValue;
+            if (node.nodeType === 1) {
+                const text = node.textContent.trim();
+                if (text === "Export to Sheets" || text === "Export to Google Sheets" || text === "content_copy") return "";
+                if (node.classList.contains('generated-image-controls') || node.classList.contains('export-sheets-button-container')) return "";
+                if (node.tagName === 'PROCESSING-STATE' || node.classList.contains('extension-processing-state')) return "";
+                if (node.tagName === 'SOURCES-LIST' || node.classList.contains('sources-list')) return "";
+                if (node.tagName === 'USER-NOTICE' || node.classList.contains('user-notice')) return "";
+                if (node.classList.contains('stopped-draft-message')) return "";
+                
+                if (node.classList.contains('model-thoughts')) {
+                    const contentNode = node.querySelector('[data-test-id="thoughts-content"]');
+                    if (contentNode) {
+                        const thoughtText = this.parseChildren(contentNode).trim();
+                        const formatted = thoughtText.split('\n').map(line => `> ${line}`).join('\n');
+                        return `> **🤔 Gemini Thinking:**\n>\n${formatted}\n\n`;
+                    }
+                    return "";
+                }
+                
+                if (node.tagName === 'YOUTUBE-BLOCK') {
+                    const titleEl = node.querySelector('.tool-attribution-title span');
+                    const subtitleEl = node.querySelector('.tool-attribution-label');
+                    const iframe = node.querySelector('iframe');
+                    if (titleEl && iframe) {
+                        const title = titleEl.textContent.trim();
+                        const subtitle = subtitleEl ? subtitleEl.textContent.trim() : "";
+                        const src = iframe.getAttribute('src') || "";
+                        const match = src.match(/\/embed\/([^?&]+)/);
+                        const videoId = match ? match[1] : "";
+                        const url = videoId ? `https://www.youtube.com/watch?v=${videoId}` : "";
+                        const titleLink = url ? `[${title}](${url})` : title;
+                        return `\n> ▶️ **YouTube**\n>\n> - **${titleLink}**\n>   ${subtitle}\n\n`;
+                    }
+                }
+                
+                if (node.tagName === 'ACTION-CARD') {
+                    const serviceNameEl = node.querySelector('.tool-display-name');
+                    if (serviceNameEl) {
+                        const serviceName = serviceNameEl.textContent.trim();
+                        let emoji = "📱";
+                        let baseUrlTemplate = "";
+                        if (serviceName === "YouTube Music") { emoji = "🎵"; baseUrlTemplate = "https://music.youtube.com/search?q="; }
+                        else if (serviceName === "Google Keep") { emoji = "💡"; baseUrlTemplate = "https://keep.google.com/#search/text/"; }
+                        else if (serviceName === "Google Tasks") { emoji = "✅"; baseUrlTemplate = "tasks"; }
+                        else if (serviceName === "Google Calendar") { emoji = "📅"; baseUrlTemplate = "calendar"; }
+                        
+                        let mdString = `\n> ${emoji} **${serviceName}**\n> \n`;
+                        const actions = node.querySelectorAll('action');
+                        actions.forEach(action => {
+                            const titleEl = action.querySelector('.primary-text');
+                            if (titleEl) {
+                                const title = this.parseChildren(titleEl).trim();
+                                let searchUrl = "";
+                                if (baseUrlTemplate === "tasks") searchUrl = "https://tasks.google.com/";
+                                else if (baseUrlTemplate === "calendar") searchUrl = "https://calendar.google.com/";
+                                else if (baseUrlTemplate) searchUrl = baseUrlTemplate + encodeURIComponent(title);
+                                const titleLink = searchUrl ? `[${title}](${searchUrl})` : title;
+                                mdString += `> - **${titleLink}**\n`;
+                            }
+                        });
+                        return mdString + "\n";
+                    }
+                }
+                
+                switch (node.nodeName) {
+                    case "H1": case "H2": case "H3":
+                        const level = node.nodeName.substring(1);
+                        const hText = this.parseChildren(node).trim();
+                        if (!hText || hText === "Gemini said" || hText === "You said") return "";
+                        return `\n${"#".repeat(parseInt(level) + 2)} ${hText}\n`;
+                    case "P": return `\n${this.parseChildren(node).trim()}\n`;
+                    case "STRONG": case "B": return `**${this.parseChildren(node).trim()}**`;
+                    case "EM": case "I": return `*${this.parseChildren(node).trim()}*`;
+                    case "A":
+                        const href = node.getAttribute("href");
+                        const linkText = this.parseChildren(node).trim();
+                        if (!href || href.startsWith('javascript:') || href === "#") return linkText;
+                        return `[${linkText}](${href})`;
+                    case "CODE":
+                        return node.closest('pre') ? node.textContent : `\`${node.textContent}\``;
+                    case "CODE-BLOCK":
+                        const langSpan = node.querySelector('span');
+                        const lang = langSpan ? langSpan.textContent.trim() : "";
+                        const codeContent = node.querySelector('pre')?.textContent || "";
+                        return `\n\`\`\`${lang}\n${codeContent.trim()}\n\`\`\`\n`;
+                    case "PRE":
+                        if (node.closest('code-block')) return "";
+                        return `\n\`\`\`\n${node.textContent.trim()}\n\`\`\`\n`;
+                    case "UL": return `\n${this.parseChildren(node)}\n`;
+                    case "OL":
+                        let olText = "\n";
+                        Array.from(node.children).forEach((li, i) => {
+                            if(li.nodeName === "LI") olText += `${i+1}. ${this.parseChildren(li).trim()}\n`;
+                        });
+                        return olText;
+                    case "LI": return `- ${this.parseChildren(node).trim()}\n`;
+                    case "BLOCKQUOTE": return `\n> ${node.textContent.trim()}\n`;
+                    case "TABLE": return `\n${this.parseTable(node)}\n`;
+                    case "BR": return "\n";
+                    case "SCRIPT": case "STYLE": return "";
+                    case "MAT-ICON": return "";
+                    default: return this.parseChildren(node);
+                }
+            }
+            return "";
+        },
+        parseChildren: function(node) {
+            let res = "";
+            node.childNodes.forEach(child => res += this.parseNode(child));
+            return res;
+        },
+        parseTable: function(table) {
+            let md = "";
+            const rows = Array.from(table.querySelectorAll("tr"));
+            rows.forEach((tr, i) => {
+                const cells = Array.from(tr.querySelectorAll("th, td")).map(c => {
+                    let cellContent = this.parseChildren(c).trim();
+                    return cellContent.replace(/\|/g, "\\|").replace(/\n/g, "<br>"); 
+                });
+                md += `| ${cells.join(" | ")} |\n`;
+                if (i === 0) md += `| ${cells.map(() => "---").join(" | ")} |\n`;
+            });
+            return md;
+        }
+    };
+    
+    // [2026-04-03] 添加：导出功能
+    function runExport() {
+        const queries = document.querySelectorAll("user-query-content");
+        const responses = document.querySelectorAll("model-response");
+        
+        if (!queries.length) {
+            alert("未找到对话内容，请确保在对话页面。");
+            return;
+        }
+        
+        const titleEl = document.querySelector('[data-test-id="conversation-title"]');
+        const chatTitle = titleEl?.textContent.trim() || "Gemini Chat";
+        
+        let output = `# ${chatTitle}\n\n---\n\n`;
+        for (let i = 0; i < queries.length; i++) {
+            const q = ExporterMarkdownParser.parseChildren(queries[i]).replace(/You said/g, "").trim();
+            output += `## 👤 User\n${q}\n\n`;
+            if (responses[i]) {
+                const a = ExporterMarkdownParser.parseChildren(responses[i]).replace(/Gemini said/g, "").trim();
+                output += `## 🤖 Gemini\n${a}\n\n---\n\n`;
+            }
+        }
+        
+        const blob = new Blob([output], { type: "text/markdown" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        const now = new Date();
+        const ts = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
+        a.download = `${chatTitle.replace(/[\/\\?%*:|"<>]/g, '_')}_${ts}.md`;
+        a.click();
     }
     // 提取唯一的对话列表数据，保证渲染时和点击时使用相同逻辑查找元素
     function getUniqueQueries() {
