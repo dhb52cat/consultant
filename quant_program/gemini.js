@@ -6890,10 +6890,82 @@
         }
 
         /**
+         * [2026-04-03] 添加：处理会话拖拽排序
+         * @param {string} draggedId - 被拖拽的会话ID
+         * @param {string} targetId - 目标位置的会话ID
+         */
+        handleConversationDragDrop(draggedId, targetId) {
+            const container = document.querySelector('.conversations-list');
+            if (!container) return;
+
+            const items = Array.from(container.querySelectorAll('.conversations-item[data-id]'));
+            const newOrder = items.map(el => el.dataset.id).filter(id => id !== draggedId);
+
+            const targetIndex = newOrder.indexOf(targetId);
+            const dragIndex = newOrder.indexOf(draggedId);
+
+            if (dragIndex > -1) {
+                newOrder.splice(dragIndex, 1);
+            }
+            if (targetIndex > -1) {
+                newOrder.splice(targetIndex, 0, draggedId);
+            }
+
+            const currentCid = this.siteAdapter.getCurrentCid ? this.siteAdapter.getCurrentCid() : null;
+            const folderId = Object.values(this.data.conversations).find(c => c.id === targetId)?.folderId;
+            if (!folderId) return;
+
+            const folderConvs = Object.values(this.data.conversations).filter(c => c.folderId === folderId && this.matchesCid(c, currentCid));
+
+            folderConvs.forEach(conv => {
+                const newIndex = newOrder.indexOf(conv.id);
+                if (newIndex > -1) {
+                    this.data.conversations[conv.id].sortOrder = newIndex;
+                }
+            });
+
+            this.saveData();
+            showToast(this.t('orderUpdated') || '排序已更新');
+        }
+
+        /**
          * 创建单个会话项
+         * [2026-04-03] 修改：添加可拖拽功能，支持拖拽排序
          */
         createConversationItem(conv) {
-            const item = createElement('div', { className: 'conversations-item', 'data-id': conv.id });
+            const item = createElement('div', { className: 'conversations-item', 'data-id': conv.id, draggable: 'true' });
+
+            // [2026-04-03] 添加：拖拽事件处理
+            item.addEventListener('dragstart', (e) => {
+                e.dataTransfer.setData('text/plain', conv.id);
+                item.classList.add('dragging');
+            });
+
+            item.addEventListener('dragend', () => {
+                item.classList.remove('dragging');
+            });
+
+            item.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                const draggingItem = document.querySelector('.conversations-item.dragging');
+                if (draggingItem && draggingItem !== item) {
+                    const rect = item.getBoundingClientRect();
+                    const midY = rect.top + rect.height / 2;
+                    if (e.clientY < midY) {
+                        item.parentNode.insertBefore(draggingItem, item);
+                    } else {
+                        item.parentNode.insertBefore(draggingItem, item.nextSibling);
+                    }
+                }
+            });
+
+            item.addEventListener('drop', (e) => {
+                e.preventDefault();
+                const draggedId = e.dataTransfer.getData('text/plain');
+                if (draggedId && draggedId !== conv.id) {
+                    this.handleConversationDragDrop(draggedId, conv.id);
+                }
+            });
             // New Layout: Flex Column
             // Row 1: Content (Title + Checkbox) ----- Actions (Time + Menu)
             // Row 2: Tags
@@ -11704,6 +11776,12 @@
                 }
 
                 /* ========== 边缘吸附隐藏功能样式 ========== */
+                /* [2026-04-03] 添加：面板收起时向左移动效果 */
+                #gemini-helper-panel.collapsed-slide-left {
+                    left: -320px !important;
+                    right: auto !important;
+                    transition: left 0.3s ease, opacity 0.3s ease;
+                }
                 #gemini-helper-panel.edge-snapped-left {
                     left: -310px !important;
                     right: auto !important;
@@ -15032,6 +15110,9 @@
             container.appendChild(content);
         }
 
+        /**
+         * [2026-04-03] 修改：面板收起时向左移动效果
+         */
         togglePanel() {
             const panel = document.getElementById('gemini-helper-panel');
             const quickBtnGroup = document.getElementById('quick-btn-group');
@@ -15041,7 +15122,9 @@
             if (this.isCollapsed) {
                 // 折叠时隐藏触发条（如果有的话）
                 this.hideEdgeTrigger();
-                panel.classList.add('collapsed');
+                // [2026-04-03] 修改：使用向左移动代替直接隐藏
+                panel.classList.remove('collapsed');
+                panel.classList.add('collapsed-slide-left');
                 if (quickBtnGroup) quickBtnGroup.classList.add('collapsed');
                 if (toggleBtn) toggleBtn.textContent = '+';
             } else {
@@ -15050,6 +15133,8 @@
                     panel.classList.remove('edge-snapped-left', 'edge-snapped-right');
                     this.hideEdgeTrigger();
                 }
+                // [2026-04-03] 修改：从左边移回
+                panel.classList.remove('collapsed-slide-left');
                 panel.classList.remove('collapsed');
                 if (quickBtnGroup) quickBtnGroup.classList.remove('collapsed');
                 if (toggleBtn) toggleBtn.textContent = '−';
