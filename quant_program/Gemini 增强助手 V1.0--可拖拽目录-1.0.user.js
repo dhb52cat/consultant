@@ -607,10 +607,12 @@
         while(tocList.firstChild) tocList.removeChild(tocList.firstChild);
         if (unique.length === 0) { tocList.appendChild(el('div', '', '暂无记录')); return; }
         unique.forEach((item, idx) => {
-            // [2026-04-03] 修改：如果文字以"你说"开头，则去掉"你说"两字
+            // [2026-04-03] 修改：如果文字以"你说"或"You said"开头，则去掉对应文字
             let displayText = item.text;
             if (displayText.startsWith('你说')) {
                 displayText = displayText.substring(2);
+            } else if (displayText.startsWith('You said')) {
+                displayText = displayText.substring('You said'.length);
             }
             const itemEl = el('div', 'toc-item', `${idx+1}. ${displayText}`);
             itemEl.title = displayText;
